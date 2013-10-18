@@ -2429,15 +2429,15 @@ public class Activity extends ContextThemeWrapper
      * @return boolean Return true if this event was consumed.
      */
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        if (ev.getAction() == MotionEvent.ACTION_DOWN) {
-            onUserInteraction();
+        if (ev.getAction() == MotionEvent.ACTION_DOWN){
+        	onUserInteraction();
         }
         if (getWindow().superDispatchTouchEvent(ev)) {
             return true;
         }
         return onTouchEvent(ev);
     }
-    
+
     /**
      * Called to process trackball events.  You can override this to
      * intercept all trackball events before they are dispatched to the

@@ -71,9 +71,7 @@ import android.os.UEventObserver;
 import android.os.UserHandle;
 import android.os.Vibrator;
 import android.provider.Settings;
-
 import dalvik.system.DexClassLoader;
-
 import android.service.dreams.DreamService;
 import android.service.dreams.IDreamManager;
 import android.util.DisplayMetrics;
@@ -122,6 +120,7 @@ import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.telephony.ITelephony;
 import com.android.internal.util.cm.DevUtils;
 import com.android.internal.widget.PointerLocationView;
+import com.android.internal.widget.QuickPeekInputReceiver;
 
 import java.io.File;
 import java.io.FileReader;
@@ -327,6 +326,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     boolean mHasSoftInput = false;
     int mBackKillTimeout;
     int mPointerLocationMode = 0; // guarded by mLock
+    int mQuickPeekMode = 0;
     int mDeviceHardwareKeys;
     boolean mHasMenuKeyEnabled;
 
@@ -378,6 +378,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     PointerLocationInputEventReceiver mPointerLocationInputEventReceiver;
     PointerLocationView mPointerLocationView;
     InputChannel mPointerLocationInputChannel;
+    
+    QuickPeekInputReceiver mQuickPeekInputReceiver;
+    InputChannel mQuickPeekInputChannel;
 
     // The current size of the screen; really; extends into the overscan area of
     // the screen and doesn't account for any system elements like the status bar.
@@ -550,6 +553,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private static final int MSG_DISPATCH_MEDIA_KEY_WITH_WAKE_LOCK = 3;
     private static final int MSG_DISPATCH_MEDIA_KEY_REPEAT_WITH_WAKE_LOCK = 4;
     private static final int MSG_DISPATCH_VOLKEY_WITH_WAKE_LOCK = 5;
+    private static final int MSG_ENABLE_QUICK_PEEK = 6;
+    private static final int MSG_DISABLE_QUICK_PEEK = 7;
 
     private class PolicyHandler extends Handler {
         @Override
@@ -571,6 +576,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     mIsLongPress = true;
                     dispatchMediaKeyWithWakeLockToAudioService((KeyEvent)msg.obj);
                     dispatchMediaKeyWithWakeLockToAudioService(KeyEvent.changeAction((KeyEvent)msg.obj, KeyEvent.ACTION_UP));
+                    break;
+                case MSG_ENABLE_QUICK_PEEK:
+                    enableQuickPeek();
+                    break;
+                case MSG_DISABLE_QUICK_PEEK:
+                    disableQuickPeek();
                     break;
             }
         }
@@ -654,6 +665,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.HARDWARE_KEY_REBINDING), false, this,
                     UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.FORCE_SHOW_STATUS_BAR), false, this);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+            		Settings.System.STATUSBAR_PEEK), false, this);
 
             updateSettings();
         }
@@ -1440,6 +1455,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     mHandler.sendEmptyMessage(pointerLocation != 0 ?
                             MSG_ENABLE_POINTER_LOCATION : MSG_DISABLE_POINTER_LOCATION);
                 }
+                int statusBarQuickPeek = Settings.System.getInt(resolver,
+                		Settings.System.STATUSBAR_PEEK, 0);
+                if (mQuickPeekMode != statusBarQuickPeek) {
+                    mQuickPeekMode = statusBarQuickPeek;
+                }
             }
             // use screen off timeout setting as the timeout for the lockscreen
             mLockScreenTimeout = Settings.System.getIntForUser(resolver,
@@ -1585,7 +1605,29 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             mPointerLocationView = null;
         }
     }
+ 
+    private void enableQuickPeek() {
+        if (mQuickPeekInputReceiver == null) {
+            mQuickPeekInputChannel =
+                    mWindowManagerFuncs.monitorInput("StatusBarTriggerView");
+            mQuickPeekInputReceiver =
+                    new QuickPeekInputReceiver(mQuickPeekInputChannel,
+                            Looper.myLooper(), mContext);
+        }
+    }
+    
+    private void disableQuickPeek() {
+        if (mQuickPeekInputReceiver != null) {
+            mQuickPeekInputReceiver.dispose();
+            mQuickPeekInputReceiver = null;
+        }
 
+        if (mQuickPeekInputChannel != null) {
+            mQuickPeekInputChannel.dispose();
+            mQuickPeekInputChannel = null;
+        }
+    }
+    
     private int readRotation(int resID) {
         try {
             int rotation = mContext.getResources().getInteger(resID);
@@ -3829,11 +3871,19 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             if (DEBUG_LAYOUT) Log.i(TAG, "force=" + mForceStatusBar
                     + " forcefkg=" + mForceStatusBarFromKeyguard
                     + " top=" + mTopFullscreenOpaqueWindowState);
+            final int expandedDesktop = Settings.System.getInt(mContext.getContentResolver(),
+                                                Settings.System.EXPANDED_DESKTOP_STATE, 0);
+            final boolean forceStatusBar = Settings.System.getInt(mContext.getContentResolver(),
+                                                Settings.System.FORCE_SHOW_STATUS_BAR, 0) == 1;
             if ((mForceStatusBar || mForceStatusBarFromKeyguard) &&
-                    Settings.System.getInt(mContext.getContentResolver(),
-                    Settings.System.EXPANDED_DESKTOP_STATE, 0) == 0) {
+                    expandedDesktop == 0) {
                 if (DEBUG_LAYOUT) Log.v(TAG, "Showing status bar: forced");
-                if (mStatusBar.showLw(true)) changes |= FINISH_LAYOUT_REDO_LAYOUT;
+                if (mStatusBar.showLw(true)) {
+                	changes |= FINISH_LAYOUT_REDO_LAYOUT;
+                	if(mQuickPeekMode == 1){
+                		mHandler.sendEmptyMessage(MSG_DISABLE_QUICK_PEEK);
+                	}
+                }
             } else if (mTopFullscreenOpaqueWindowState != null) {
                 if (localLOGV) {
                     Log.d(TAG, "frame: " + mTopFullscreenOpaqueWindowState.getFrameLw()
@@ -3847,9 +3897,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 // and mTopIsFullscreen is that that mTopIsFullscreen is set only if the window
                 // has the FLAG_FULLSCREEN set.  Not sure if there is another way that to be the
                 // case though.
-                if (topIsFullscreen || Settings.System.getInt(mContext.getContentResolver(), Settings.System.EXPANDED_DESKTOP_STATE, 0) == 1) {
+                if ((topIsFullscreen || expandedDesktop == 1) && !forceStatusBar) {
                     if (DEBUG_LAYOUT) Log.v(TAG, "** HIDING status bar");
                     if (mStatusBar.hideLw(true)) {
+                    	if(mQuickPeekMode == 1){
+                    		mHandler.sendEmptyMessage(MSG_ENABLE_QUICK_PEEK);
+                    	}
                         changes |= FINISH_LAYOUT_REDO_LAYOUT;
 
                         mHandler.post(new Runnable() {
@@ -3870,7 +3923,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     }
                 } else {
                     if (DEBUG_LAYOUT) Log.v(TAG, "** SHOWING status bar: top is not fullscreen");
-                    if (mStatusBar.showLw(true)) changes |= FINISH_LAYOUT_REDO_LAYOUT;
+                    if (mStatusBar.showLw(true)) {
+                    	changes |= FINISH_LAYOUT_REDO_LAYOUT;
+                    	if(mQuickPeekMode == 1 && !forceStatusBar){
+                    		mHandler.sendEmptyMessage(MSG_DISABLE_QUICK_PEEK);
+                    	}
+                    }
                 }
             }
         }
