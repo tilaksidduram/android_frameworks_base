@@ -19,6 +19,7 @@ package com.android.systemui.statusbar.halo;
 import android.os.Handler;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.graphics.Bitmap;
 import android.graphics.PorterDuff;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -87,11 +88,12 @@ public class HaloProperties extends FrameLayout {
     private Drawable mHaloIconMessage;
     private Drawable mHaloIconPersistent;
     private Drawable mHaloIconPinned;
+    private Drawable mNotificationIcon;
 
     protected Drawable mHaloSpeechL, mHaloSpeechR, mHaloSpeechLD, mHaloSpeechRD;
 
     protected View mHaloBubble;
-    protected ImageView mHaloBg, mHaloIcon, mHaloOverlay;
+    protected ImageView mHaloBg, mHaloOverlay;
 
     protected View mHaloContentView, mHaloTickerContent, mHaloTickerWrapper;
     protected TextView mHaloTextView;
@@ -134,7 +136,6 @@ public class HaloProperties extends FrameLayout {
 
         mHaloBubble = mInflater.inflate(R.layout.halo_bubble, null);
         mHaloBg = (ImageView) mHaloBubble.findViewById(R.id.halo_bg);
-        mHaloIcon = (ImageView) mHaloBubble.findViewById(R.id.app_icon);
         mHaloOverlay = (ImageView) mHaloBubble.findViewById(R.id.halo_overlay);
 
         mHaloContentView = mInflater.inflate(R.layout.halo_speech, null);
@@ -157,7 +158,13 @@ public class HaloProperties extends FrameLayout {
 
         mHaloOverlayAnimator = new CustomObjectAnimator(this);
     }
-
+    
+    public void setHaloCircleColor(int color){
+        mHaloBg.setBackgroundResource(R.drawable.halo_bg);
+        mHaloBg.getBackground().setAlpha(215);
+        mHaloBg.getBackground().setColorFilter(color, PorterDuff.Mode.MULTIPLY); 
+    }
+    
     int newPaddingHShort;
     int newPaddingHWide;
     int newPaddingVTop;
@@ -167,7 +174,6 @@ public class HaloProperties extends FrameLayout {
         final int newBubbleSize = (int)(mContext.getResources().getDimensionPixelSize(R.dimen.halo_bubble_size) * fraction);
         RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(newBubbleSize, newBubbleSize);
         mHaloBg.setLayoutParams(layoutParams);
-        mHaloIcon.setLayoutParams(layoutParams);
         mHaloOverlay.setLayoutParams(layoutParams);
 
         newPaddingHShort = (int)(mContext.getResources().getDimensionPixelSize(R.dimen.halo_speech_hpadding_short) * fraction);
@@ -318,6 +324,27 @@ public class HaloProperties extends FrameLayout {
         setHaloOverlay(overlay, mHaloOverlay.getAlpha());
     }
 
+    public void setNotificationIcon(Drawable d){
+    	mNotificationIcon = d;
+    	setHaloOverlay(d, 1, d == null);
+    }
+    
+    public void setHaloOverlay(Drawable d, float overlayAlpha, boolean none){
+    	if (d != mHaloCurrentOverlay) {
+            mHaloOverlay.setImageDrawable(d);
+            mHaloCurrentOverlay = d;
+
+            // Fade out number batch
+            if (!none) {
+                msgNumberAlphaAnimator.animate(ObjectAnimator.ofFloat(mHaloNumberContainer, "alpha", 0f).setDuration(100),
+                        new DecelerateInterpolator(), null);
+            }
+        }
+
+        mHaloOverlay.setAlpha(overlayAlpha);
+        updateResources(mLastContentStateLeft);
+    }
+    
     public void setHaloOverlay(Overlay overlay, float overlayAlpha) {
 
         Drawable d = null;
@@ -347,21 +374,16 @@ public class HaloProperties extends FrameLayout {
             case MESSAGE:
                 d = mHaloMessage;
                 break;
+            case NONE:
+            	if (mNotificationIcon != null){
+            		d = mNotificationIcon;
+            		overlayAlpha = 1;
+            		Log.e("Halo", "Set notification Icon!");
+            	}
+            	break;
         }
 
-        if (d != mHaloCurrentOverlay) {
-            mHaloOverlay.setImageDrawable(d);
-            mHaloCurrentOverlay = d;
-
-            // Fade out number batch
-            if (overlay != Overlay.NONE) {
-                msgNumberAlphaAnimator.animate(ObjectAnimator.ofFloat(mHaloNumberContainer, "alpha", 0f).setDuration(100),
-                        new DecelerateInterpolator(), null);
-            }
-        }
-
-        mHaloOverlay.setAlpha(overlayAlpha);
-        updateResources(mLastContentStateLeft);
+        setHaloOverlay(d, overlayAlpha, overlay == Overlay.NONE);
     }
 
     private ContentStyle mLastContentStyle = ContentStyle.CONTENT_NONE;

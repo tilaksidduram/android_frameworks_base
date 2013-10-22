@@ -2745,6 +2745,18 @@ public final class Settings {
         public static final String HALO_PAUSE = "halo_pause";
 
         /**
+         * Enable custom HALO Colors
+         * @hide
+         **/
+        public static final String HALO_COLOR = "halo_color";
+
+        /**
+         * HALO Circle Color
+         * @hide
+         **/
+        public static final String HALO_CIRCLE_COLOR = "halo_circle_color";
+
+        /**
          * Pie menu, should default to 1 (yes, show)
          * @hide
          */

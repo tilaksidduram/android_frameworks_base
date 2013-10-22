@@ -164,8 +164,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
     private NotificationData mNotificationData;
     private String mNotificationText = "";
 
-    private Paint mPaintHoloBlue = new Paint();
-    private Paint mPaintWhite = new Paint();
+    private Paint mPaintHolo = new Paint();
     private Paint mPaintHoloRed = new Paint();
 
     private boolean mAttached = false;
@@ -220,6 +219,10 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
                     Settings.System.HALO_NOTIFY_COUNT), false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.HAPTIC_FEEDBACK_ENABLED), false, this);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+            		Settings.System.HALO_COLOR), false, this);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+            		Settings.System.HALO_CIRCLE_COLOR), false, this);
         }
 
         @Override
@@ -230,6 +233,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
                     Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_HIDE, 0) == 1;
             mNinjaMode =
                     Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_NINJA, 0) == 1;
+            updateHaloColors();
             if (!selfChange) {
                 mBar.restartHalo();
                 mEffect.nap(HaloEffect.SNAP_TIME + 1000);
@@ -308,10 +312,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
         mTriggerPos = getWMParams();
 
         // Init colors
-        mPaintHoloBlue.setAntiAlias(true);
-        mPaintHoloBlue.setColor(0xff33b5e5);
-        mPaintWhite.setAntiAlias(true);
-        mPaintWhite.setColor(0xfff0f0f0);
+        mPaintHolo.setAntiAlias(true);
         mPaintHoloRed.setAntiAlias(true);
         mPaintHoloRed.setColor(0xffcc0000);
 
@@ -332,6 +333,8 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
               PixelFormat.TRANSLUCENT);
         lp.gravity = Gravity.LEFT|Gravity.TOP;
         mWindowManager.addView(mEffect, lp);
+        
+        updateHaloColors();
     }
 
     private void initControl() {
@@ -428,6 +431,16 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
         if (mEffect != null) mEffect.invalidate();
     }
 
+    private void updateHaloColors(){
+        if(Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_COLOR, 0) == 1) {
+        	mEffect.setHaloCircleColor(
+        			Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_CIRCLE_COLOR, 0xFF33B5E5)
+        			);
+        } else {
+        	mEffect.setHaloCircleColor(0XFF33B5E5);
+        }
+    }
+    
     private void updateTriggerPosition(int x, int y) {
         try {
             mTriggerPos.x = x;
@@ -1511,7 +1524,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
     }
 
     void clearTicker() {
-        mEffect.mHaloIcon.setImageDrawable(null);
+        mEffect.setNotificationIcon(null);
         mEffect.msgNumberAlphaAnimator.cancel(true);
         mEffect.msgNumberFlipAnimator.cancel(true);
         mEffect.tickerAnimator.cancel(true);
@@ -1539,8 +1552,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
         mCurrentNotficationEntry = entry;
 
         // set the avatar
-        mEffect.setHaloOverlay(HaloProperties.Overlay.NONE,0f);
-        mEffect.mHaloIcon.setImageDrawable(new BitmapDrawable(mContext.getResources(), entry.getRoundIcon()));
+        mEffect.setNotificationIcon(new BitmapDrawable(mContext.getResources(), entry.getRoundIcon()));
 
         if (showContent && mState != State.SILENT) {
             if (entry.haloContent != null) {
@@ -1622,7 +1634,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
                             tick(entry, HaloEffect.WAKE_TIME * 2, 1000, true, showMsgBox, false);
 
                             // Pop while not tasking, only if notification is certified fresh
-                            if (mGesture != Gesture.TASK && mState != State.SILENT) mEffect.ping(mPaintHoloBlue, HaloEffect.WAKE_TIME * 2);
+                            if (mGesture != Gesture.TASK && mState != State.SILENT) mEffect.ping(mPaintHolo, HaloEffect.WAKE_TIME * 2);
                         }
                     }
                     break;
@@ -1772,7 +1784,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
                                 if (mHideTicker) mEffect.sleep(HaloEffect.SLEEP_DELAY + HaloEffect.WAKE_TIME * 2, HaloEffect.SLEEP_TIME, false);
                                 boolean showMsgBox = Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_MSGBOX, 1) == 1;
                                 tick(entry, HaloEffect.WAKE_TIME * 2, 1000, false, showMsgBox, false);
-                                mEffect.ping(mPaintHoloBlue, HaloEffect.WAKE_TIME * 2);
+                                mEffect.ping(mPaintHolo, HaloEffect.WAKE_TIME * 2);
                                 mPingNewcomer = false;
                             }
                     }
