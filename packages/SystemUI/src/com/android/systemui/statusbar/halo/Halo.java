@@ -1199,7 +1199,6 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
             			vg = (ViewGroup)vg.getChildAt(3);
             			if(vg.getChildAt(0) instanceof TextView){
             				tv = (TextView)vg.getChildAt(0);
-            				Log.e("Halo", "Settings description text color: " + mNotifDescColor);
                     		tv.setTextColor(mNotifDescColor);
             			}
             		}
