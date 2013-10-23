@@ -188,7 +188,9 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
     private int mStatusB_X;
     private int mMarkerIndex = -1;
     private int mDismissDelay = 100;
-
+    private int mNotifTitleColor;
+    private int mNotifDescColor;
+    
     private int oldIconIndex = -1;
     private float initialX = 0;
     private float initialY = 0;
@@ -225,6 +227,10 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
             		Settings.System.HALO_CIRCLE_COLOR), false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
             		Settings.System.HALO_EFFECT_COLOR), false, this);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+            		Settings.System.HALO_NOTIFICATION_TITLE_COLOR), false, this);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+            		Settings.System.HALO_NOTIFICATION_DESC_COLOR), false, this);
         }
 
         @Override
@@ -443,6 +449,10 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
         	mPaintHolo.setColor(
         			Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_EFFECT_COLOR, 0xff33b5e5)
         			);
+        	mNotifTitleColor = 
+        			Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_NOTIFICATION_TITLE_COLOR, 0xffffffff);
+        	mNotifDescColor = 
+        			Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_NOTIFICATION_DESC_COLOR, 0xff999999);
         } else {
         	mEffect.mHaloBg.setImageResource(R.drawable.halo_bg);
         	mPaintHolo.setColor(0xFF33B5E5);
@@ -1159,7 +1169,42 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
         public void ticker(int delay, int startDuration, boolean flip) {
 
             setHaloContentHeight(mContext.getResources().getDimensionPixelSize(R.dimen.notification_min_height));
-            mHaloTickerContent.setVisibility(View.VISIBLE);          
+            mHaloTickerContent.setVisibility(View.VISIBLE); 
+            
+            /* 
+             * This should work for every standard text notification
+             * By writing a recursive function getting all textviews and logging its text,
+             * I found out the following:
+             * The title is normally child 0 of child 0 of child 0 of mHaloTickerContent.
+             * The description normally is child 0 of child 3 of child 0 of mHaloTickerContent.
+             * If you know an easier way, to change title/description color, please let me know.
+             */
+            if(mEffect.mEnableCustomColor){
+                ViewGroup vg = (ViewGroup)mHaloTickerContent;
+                TextView tv;
+            	if(vg.getChildAt(0) instanceof LinearLayout){
+            		vg = (ViewGroup)vg.getChildAt(0);
+            		if(vg.getChildAt(0) instanceof LinearLayout){
+            			vg = (ViewGroup)vg.getChildAt(0);
+            			if(vg.getChildAt(0) instanceof TextView){
+            				tv = (TextView)vg.getChildAt(0);
+                    		tv.setTextColor(mNotifTitleColor);
+            			}
+            		}
+            	}
+                vg = (ViewGroup)mHaloTickerContent;
+            	if(vg.getChildAt(0) instanceof LinearLayout){
+            		vg = (ViewGroup)vg.getChildAt(0);
+            		if(vg.getChildAt(3) instanceof LinearLayout){
+            			vg = (ViewGroup)vg.getChildAt(3);
+            			if(vg.getChildAt(0) instanceof TextView){
+            				tv = (TextView)vg.getChildAt(0);
+            				Log.e("Halo", "Settings description text color: " + mNotifDescColor);
+                    		tv.setTextColor(mNotifDescColor);
+            			}
+            		}
+            	}
+            }
             mHaloTextView.setVisibility(View.GONE);
             updateResources(mTickerLeft);
 
@@ -1180,7 +1225,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
             }
             if (flip) flipContent(500, delay);
         }
-
+        
         public void ping(final Paint paint, final long delay) {
             if ((!mPingAllowed && paint != mPaintHoloRed)
                     && mGesture != Gesture.TASK) return;
