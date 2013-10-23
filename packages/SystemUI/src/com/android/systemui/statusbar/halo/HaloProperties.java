@@ -108,6 +108,8 @@ public class HaloProperties extends FrameLayout {
     private MessageType mHaloMessageType = MessageType.MESSAGE;
 
     private boolean mLastContentStateLeft = true;
+    
+    protected boolean mEnableCustomColor = false;
 
     CustomObjectAnimator mHaloOverlayAnimator;
 
@@ -160,7 +162,8 @@ public class HaloProperties extends FrameLayout {
     }
     
     public void setHaloCircleColor(int color){
-        mHaloBg.setBackgroundResource(R.drawable.halo_bg);
+    	mHaloBg.setImageResource(R.drawable.halo_bg_custom);
+        mHaloBg.setBackgroundResource(R.drawable.halo_bg_custom);
         mHaloBg.getBackground().setAlpha(215);
         mHaloBg.getBackground().setColorFilter(color, PorterDuff.Mode.MULTIPLY); 
     }

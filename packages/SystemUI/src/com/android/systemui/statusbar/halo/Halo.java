@@ -223,6 +223,8 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
             		Settings.System.HALO_COLOR), false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
             		Settings.System.HALO_CIRCLE_COLOR), false, this);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+            		Settings.System.HALO_EFFECT_COLOR), false, this);
         }
 
         @Override
@@ -313,6 +315,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
 
         // Init colors
         mPaintHolo.setAntiAlias(true);
+        mPaintHolo.setColor(0xff33b5e5);
         mPaintHoloRed.setAntiAlias(true);
         mPaintHoloRed.setColor(0xffcc0000);
 
@@ -432,12 +435,17 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
     }
 
     private void updateHaloColors(){
-        if(Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_COLOR, 0) == 1) {
+    	mEffect.mEnableCustomColor = Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_COLOR, 0) == 1;
+        if(mEffect.mEnableCustomColor) {
         	mEffect.setHaloCircleColor(
         			Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_CIRCLE_COLOR, 0xFF33B5E5)
         			);
+        	mPaintHolo.setColor(
+        			Settings.System.getInt(mContext.getContentResolver(), Settings.System.HALO_EFFECT_COLOR, 0xff33b5e5)
+        			);
         } else {
-        	mEffect.setHaloCircleColor(0XFF33B5E5);
+        	mEffect.mHaloBg.setImageResource(R.drawable.halo_bg);
+        	mPaintHolo.setColor(0xFF33B5E5);
         }
     }
     
@@ -1151,7 +1159,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
         public void ticker(int delay, int startDuration, boolean flip) {
 
             setHaloContentHeight(mContext.getResources().getDimensionPixelSize(R.dimen.notification_min_height));
-            mHaloTickerContent.setVisibility(View.VISIBLE);
+            mHaloTickerContent.setVisibility(View.VISIBLE);          
             mHaloTextView.setVisibility(View.GONE);
             updateResources(mTickerLeft);
 
@@ -1588,7 +1596,7 @@ public class Halo extends FrameLayout implements Ticker.TickerCallback, TabletTi
         }
         mEffect.animateHaloBatch(n.number, -1, alwaysFlip, delay, msgType);
     }
-
+    
     public void updateTicker(StatusBarNotification notification) {
         loadLastNotification(true);
     }
