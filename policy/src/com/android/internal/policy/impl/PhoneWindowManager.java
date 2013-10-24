@@ -5257,8 +5257,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     }
 
     private void applyLidSwitchState() {
-        mPowerManager.setKeyboardVisibility(isBuiltInKeyboardVisible());
-
         if (mLidState == LID_CLOSED && Settings.System.getIntForUser(mContext.getContentResolver(),
                     Settings.System.LOCKSCREEN_LID_WAKE, 0, UserHandle.USER_CURRENT) == 1) {
             mPowerManager.goToSleep(SystemClock.uptimeMillis());
