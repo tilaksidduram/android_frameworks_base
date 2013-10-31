@@ -2768,6 +2768,14 @@ public final class Settings {
         */
         public static final String DISABLE_FULLSCREEN_KEYBOARD = "disable_fullscreen_keyboard";
 
+	/**
+         * Peek at stausbar when it is hidden by swiping down from top
+         * end of the screen
+         *
+         * @hide
+         */
+        public static final String STATUSBAR_PEEK = "statusbar_peek";
+
         /**
          * HALO, should default to 0 (no, do not show)
          * @hide
